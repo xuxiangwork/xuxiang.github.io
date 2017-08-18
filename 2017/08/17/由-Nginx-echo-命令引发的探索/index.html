@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.2" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.2" />
+
+
+
+
+
+
+<meta name="description" content="起因最初在 nginx.conf 中调试时，当时希望 echo 出对应的变量值，并没有成功。起初认为是 nginx 安装时，并没有安装 echo 模块，然而事后发现实际用的是 openresty，openresty 在安装的时候，默认编译了 echo 模块，然而同样没有 echo 出对应的值，没有响应。特别是最近在 rewrite 命令之前希望 echo 出修改前的 uri 时，没有 echo 出">
+<meta property="og:type" content="article">
+<meta property="og:title" content="由 Nginx echo 命令引发的探索">
+<meta property="og:url" content="http://yoursite.com/2017/08/17/由-Nginx-echo-命令引发的探索/index.html">
+<meta property="og:site_name" content="点滴">
+<meta property="og:description" content="起因最初在 nginx.conf 中调试时，当时希望 echo 出对应的变量值，并没有成功。起初认为是 nginx 安装时，并没有安装 echo 模块，然而事后发现实际用的是 openresty，openresty 在安装的时候，默认编译了 echo 模块，然而同样没有 echo 出对应的值，没有响应。特别是最近在 rewrite 命令之前希望 echo 出修改前的 uri 时，没有 echo 出">
+<meta property="og:image" content="http://yoursite.com/images/nginx-echo/fastcgi.png">
+<meta property="og:image" content="http://yoursite.com/images/nginx-echo/php-fpm.png">
+<meta property="og:updated_time" content="2017-08-18T00:02:01.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="由 Nginx echo 命令引发的探索">
+<meta name="twitter:description" content="起因最初在 nginx.conf 中调试时，当时希望 echo 出对应的变量值，并没有成功。起初认为是 nginx 安装时，并没有安装 echo 模块，然而事后发现实际用的是 openresty，openresty 在安装的时候，默认编译了 echo 模块，然而同样没有 echo 出对应的值，没有响应。特别是最近在 rewrite 命令之前希望 echo 出修改前的 uri 时，没有 echo 出">
+<meta name="twitter:image" content="http://yoursite.com/images/nginx-echo/fastcgi.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/08/17/由-Nginx-echo-命令引发的探索/"/>
+
+
+
+
+
+  <title>由 Nginx echo 命令引发的探索 | 点滴</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">点滴</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Startseite
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archiv
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/08/17/由-Nginx-echo-命令引发的探索/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Xu Xiang">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="https://avatars0.githubusercontent.com/u/21140109?v=4&u=8bfceebdaad4dca404b9876d578296b600da38d7&s=400">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="点滴">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">由 Nginx echo 命令引发的探索</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-08-17T06:36:31+08:00">
+                2017-08-17
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="起因"><a href="#起因" class="headerlink" title="起因"></a>起因</h1><p>最初在 nginx.conf 中调试时，当时希望 echo 出对应的变量值，并没有成功。起初认为是 nginx 安装时，并没有安装 echo 模块，然而事后发现实际用的是 openresty，openresty 在安装的时候，默认编译了 echo 模块，然而同样没有 echo 出对应的值，没有响应。特别是最近在 rewrite 命令之前希望 echo 出修改前的 uri 时，没有 echo 出来，然而在 rewrite 命令之后却 echo 出来了，于是乎更加疑惑。带着这些表面现象进行了深入的学习。  </p>
+<h1 id="nginx-conf-是声明性"><a href="#nginx-conf-是声明性" class="headerlink" title="nginx.conf 是声明性"></a>nginx.conf 是声明性</h1><p>查找资料时，看到章亦春编写的 nginx 配置指令的执行顺序中提到的 “Nginx 的作者 Igor Sysoev 在公开场合曾不止一次地强调，Nginx 配置文件所使用的语言本质上是“声明性的”，而非“过程性的”（ procedural）”，顿时如醍醐灌顶。nginx 并不是按过程式执行的，执行的顺序并不是按 nginx.conf 的编写顺序。</p>
+<h1 id="nginx-主要执行阶段"><a href="#nginx-主要执行阶段" class="headerlink" title="nginx 主要执行阶段"></a>nginx 主要执行阶段</h1><p>nginx 的实际执行是阶段的，nginx 处理请求一共可划分为 11 个阶段，其中主要的是 rewrite 、access、content 三个阶段。其中 nginx 的不同模块分属不同阶段。各模块常见命令如下：<br><strong>rewrite</strong> ： ngx_rewrite 模块的 set、rewrite；ngx_set_misc 模块的 set_unescape_uri（可和nginx_rewrite 混合执行）；ngx_lua 模块的 set_by_lua；ngx_headers_more 模块的 more_set_input_headers (总是 rewrite 阶段末尾）；ngx_lua 模块的 rewrite_by_lua (rewrite 阶段末尾）；<br><strong>access</strong> ： ngx_access 模块的 deny ；ngx_access 模块的 alllow（和 deny 命令一起时，谁在前就先执行谁，并跳过后者） ；ngx_lua 的 access_by_lua （access 阶段末尾）<br><strong>content</strong> ： ngx_echo 模块的 echo；ngx_lua 模块的 content_by_lua；ngx_proxy 模块的 proxy_pass；<br>执行顺序主要四点：</p>
+<blockquote>
+<p>1) 执行顺序为 rewrite &gt; access &gt; content ；<br>2) 同一阶段的同一模块中的不同命令间的执行顺序是按书写顺序；<br>3) 同一阶段大多数不同模块间的命令执行顺序是不确定的；<br>4) 同一阶段部分不同模块间的命令也可按顺序执行，如 ngx_set_misc 模块和 ngx_rewrite 模块。  </p>
+</blockquote>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">location ~ ^/(admin|api) &#123;</div><div class="line">     </div><div class="line">    <span class="built_in">set</span> $auth_uri <span class="string">"http://127.0.0.1:8901/auth/verify"</span>;                        <span class="meta"># rewrite 阶段</span></div><div class="line">    access_by_lua_file  $document_root/openresty/lua/authorization.lua;     <span class="meta"># access 阶段</span></div><div class="line"> </div><div class="line">    <span class="meta"># echo <span class="meta-string">"original uri"</span>;                                                    # content 阶段，无法 echo 出来。</span></div><div class="line">    rewrite  ^/(.*)$ /<span class="keyword">public</span>/index.php <span class="keyword">break</span>;                               <span class="meta"># rewrite 阶段</span></div><div class="line">    fastcgi_pass   <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">9000</span>;                                          <span class="meta"># content 阶段</span></div><div class="line">    fastcgi_index  index.php;                                               <span class="meta"># contetn 阶段</span></div><div class="line">    fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;     <span class="meta"># contetn 阶段</span></div><div class="line"> </div><div class="line">    echo <span class="string">"after rewrite uri"</span>;                                             <span class="meta"># content 阶段，能够 echo 出来，但 ngx_http_fastcgi_module 模块的命令没有执行。</span></div><div class="line">    include        fastcgi_params;                                         </div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>从上诉注释的标明阶段可以看到，先执行的的是 rewrite 阶段的 set 和 rewrite，然后是 access 阶段的 access_by_lua_file，再次是 content 阶段的 fastcgi_pass 、fastcgi_index 、fastcgi_param。set &gt; rewrite &gt; access_by_lua_file &gt; fastcgi_pass &gt; fastcgi_index &gt; fastcgi_param 。<br>因此将 ngx_echo 模块的 echo 命令放置在 rewrite 命令之前，并不代表在 rewrite 命令之前执行。fastcgi_past 和 echo 都属于 content 阶段，但分属不同模块，执行顺序不确定。分析本文最开始出现的情况。  </p>
+<pre><code class="C">location ~ ^/(admin|api) {
+
+    <span class="built_in">set</span> $auth_uri <span class="string">"http://127.0.0.1:8901/auth/verify"</span>;                        <span class="meta"># rewrite 阶段</span>
+    access_by_lua_file  $document_root/openresty/lua/authorization.lua;     <span class="meta"># access 阶段</span>
+
+    echo <span class="string">"original uri"</span>;                                                 
+    rewrite  ^/(.*)$ /<span class="keyword">public</span>/index.php <span class="keyword">break</span>;                               <span class="meta"># rewrite 阶段</span>
+    fastcgi_pass   <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">9000</span>;                                          <span class="meta"># content 阶段</span>
+    fastcgi_index  index.php;                                               <span class="meta"># contetn 阶段</span>
+    fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;     <span class="meta"># contetn 阶段</span>
+
+    echo <span class="string">"after rewrite uri"</span>;                                            
+    include        fastcgi_params;                                         
+}
+</code></pre>
+<p>首先，上述写法其目的是希望在 rewrite 命令前后，将 uri 打印出来，查看 rewrite 对 uri 的修改。上述两个错误：</p>
+<blockquote>
+<p>1) echo 命令属于 ngx<em>echo 模块，其执行阶段为 content，无法在 rewrite 命令之前 echo 出修改前的 uri；<br>2) fastcgi</em>* 命令属于 ngx_http_fastcgi 模块，与 ngx_echo 为同 content 阶段执行的不同模块，执行顺序不确定。  </p>
+</blockquote>
+<p>上述写法在实际测试中 ngx_htttp_fastcgi 模块占优势，执行了。而当将 rewrite 之前的 echo 命令注释掉之后，ngx_echo 模块占优势，echo 出了修改后的 uri。上述两个模块，书写顺序在前的反而执行时不占优势，反而是后者成功执行，这不知道是不是规律，还有待验证。  </p>
+<h1 id="rewrite-模块"><a href="#rewrite-模块" class="headerlink" title="rewrite 模块"></a>rewrite 模块</h1><p>rewrite 命令的功能为安装相关的正则表达式与字符串修改 uri。其语法为：<br>rewrite regex replacement flag  </p>
+<blockquote>
+<p>1) regex 为正则表达式，可使用括号捕获，后续可根据位置应用捕获变量；<br>2) replacement 为修改后的 uri；<br>3) flag 为尾部标记。  </p>
+</blockquote>
+<p>尾部标记 flag 可由如下值：</p>
+<blockquote>
+<p>1) last —— 停止处理重写模块指令，搜索 location 与修改后的 uri 匹配；<br>2) break —— 完成重写指令；<br>3) redirect —— 返回 302 临时重定向；<br>4) permanent —— 返回 301 永久重定向。  </p>
+</blockquote>
+<p>网上相关资料推荐利用 try_files 替换 rewrite 命令。<br>其语法为：<br><code>try_files file ... uri 或 try_files file ... = code</code><br>按顺序检查文件是否存在，返回第一个找到的文件。结尾的斜线表示为文件夹 —— $uri/。如果所有的文件都找不到，会进行一个内部重定向到最后一个参数。务必确认只有最后一个参数可以引起一个内部重定向，之前的参数只设置内部URI的指向。 最后一个参数是回退URI且必须存在，否则将会出现内部500错误。命名的location也可以使用在最后一个参数中。与rewrite指令不同，如果回退URI不是命名的location那么$args不会自动保留，如果你想保留$args，必须明确声明。<br><code>try_files $uri $uri/ /index.php?q=$uri&amp;$args;</code><br>何为命令的 location，参照下例:  </p>
+<pre><code class="C++">location / {
+    try_files $uri $uri/ @drupal;
+}
+
+location @drupal {
+    ...
+}
+</code></pre>
+<p>上例中 @drupal 就是命令的 location。<br>下面通过 nginx 和 laravel 的 结合比较 rewrite 和 try_files 的写法。<br>rewrite：  </p>
+<pre><code class="C">server {
+    ...
+    root /path/to/laravel;
+    ...
+    location / {
+        rewrite  ^/(.*)$ /<span class="keyword">public</span>/index.php <span class="keyword">break</span>;
+        fastcgi_pass   <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">9000</span>;
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+        include        fastcgi_params;                                         
+    }
+...
+}
+</code></pre>
+<p>try_files:  </p>
+<pre><code class="C">server {
+    ...
+    root /path/to/laravel;
+    ...
+    # 修改为 Laravel 转发规则
+    location / {
+        try_files $uri $uri/ /<span class="keyword">public</span>/index.php?$query_string;
+    }
+
+    # PHP 支持
+    location ~ \.php$ {
+        try_files $uri /index.php =<span class="number">404</span>;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php5-fpm.sock;               # 可以进行 http 的转发
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
+</code></pre>
+<p>从书写上来看，rewrite 命令视乎更简洁。</p>
+<h1 id="nginx-中-fastcgi-的使用"><a href="#nginx-中-fastcgi-的使用" class="headerlink" title="nginx 中 fastcgi 的使用"></a>nginx 中 fastcgi 的使用</h1><p>简要介绍几个概念：  </p>
+<blockquote>
+<p>1) CGI 协议：CGI就是规定 Web Server 与相应解析器间通信时要传哪些数据、以什么样的格式传递给后方来处理相应请求的协议；<br>2) FastCGI 协议：Fastcgi 是用来提高 CGI 程序性能的的一套实现手段。Fastcgi 会首先先启一个master，解析配置文件，初始化执行环境，然后再启动多个worker，动态管理 worker 的个数。worker 用于处理请求。<br>3) FastCGI 进程管理器：实现了 FastCGI 的程序；<br>4) CGI 程序：支持 CGI 协议的应用程序；<br>5) Web Server：Web 服务器。  </p>
+</blockquote>
+<p>Web server 只是内容的分发者。对于静态文件， web server 在文件系统中直接寻找，发送给浏览器，而对于非静态文件，web server 寻找相应的解析器。对于非静态文件，处理过程如下：<br><img src="/images/nginx-echo/fastcgi.png" alt="fastcgi"><br>以 nginx 处理 php文件举例，上图的关系变为：<br><img src="/images/nginx-echo/php-fpm.png" alt="php-fpm"><br>在 fastcgi_params 中我们可以看到传递的参数 <code>fastcgi_param  REQUEST_URI        $request_uri</code>。这个参数是用于告诉后方处理程序，这个请求的 uri 是多少。在上述 nginx.conf 中，利用 rewrite 命令改写 uri，其主要目的是给 $fastcgi_script_name 赋值。$fastcgi_script_name 默认是和 $uri 是一个值，修改 $uri 目的是定位至后方服务框架的入口文件进行处理。然而实际传递给后方程序的 uri 并没有修改，因为 $request_uri 是一个不可修改的文件。当希望自定义传递给后方程序的 uri 时，就得修改对应的语句为 <code>fastcgi_param  REQUEST_URI        /you/want/uri</code>；。<br>参考：<a href="https://mengkang.net/668.html" target="_blank" rel="external">深入理解 FastCGI 协议以及在 PHP 中的实现</a></p>
+<h1 id="location-的执行顺序"><a href="#location-的执行顺序" class="headerlink" title="location 的执行顺序"></a>location 的执行顺序</h1><blockquote>
+<p>语法：location [=|~|~*|^~] /uri/ { … }  </p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模式</th>
+<th style="text-align:left">含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">location = /uri</td>
+<td style="text-align:left">= 表示精确匹配，只有完全匹配上才能生效</td>
+</tr>
+<tr>
+<td style="text-align:left">location ^~ /uri</td>
+<td style="text-align:left">^~ 开头对URL路径进行前缀匹配，并且在正则之前。</td>
+</tr>
+<tr>
+<td style="text-align:left">location ~ pattern</td>
+<td style="text-align:left">开头表示区分大小写的正则匹配</td>
+</tr>
+<tr>
+<td style="text-align:left">location ~* pattern</td>
+<td style="text-align:left">开头表示不区分大小写的正则匹配</td>
+</tr>
+<tr>
+<td style="text-align:left">location /uri</td>
+<td style="text-align:left">不带任何修饰符，也表示前缀匹配，但是在正则匹配之后</td>
+</tr>
+<tr>
+<td style="text-align:left">location /</td>
+<td style="text-align:left">通用匹配，任何未匹配到其它location的请求都会匹配到，相当于switch中的default</td>
+</tr>
+</tbody>
+</table>
+<p>前缀匹配时，nginx 不对 url 做编码，因此请求 /static/20%/aa ，可以被规则 ^~ /static/ /aa 匹配到。（注意是空格）<br>多个 location 匹配顺序：<br>=（精确） &gt; ^~（前缀） &gt; ~（区分大小写正则） &gt; ~<em>（不区分大小写正则） &gt; /uri （前缀）&gt; /（通用）；<br>当有匹配成功时，停止匹配，按当前匹配规则处理请求。<br>【注意】：前缀匹配，如果有包含关系时，按最大匹配原则进行匹配。location /dir01 与 location /dir01/dir02，如有请求 <a href="http://localhost/dir01/dir02/file" target="_blank" rel="external">http://localhost/dir01/dir02/file</a> 将最终匹配到 location /dir01/dir02。<br>正则匹配按书写顺序进行匹配。<br>简单记忆：<br>=（精确） &gt; ^~（前缀） &gt; ~（区分大小写正则） &gt; ~</em>（不区分大小写正则） &gt; /uri （前缀）&gt; /（通用）；<br>前缀匹配要最大；正则匹配要最先。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>坚持原创技术分析，您的支持将鼓励我继续创作</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>Donate</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/wechatpay.png" alt="Xu Xiang WeChat Pay"/>
+        <p>WeChat Pay</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/alipay.jpg" alt="Xu Xiang Alipay"/>
+        <p>Alipay</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/08/11/centos7安装kong详解/" rel="next" title="centos7 安装 kong 详解">
+                <i class="fa fa-chevron-left"></i> centos7 安装 kong 详解
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="uyan_frame"></div>
+      <script src="http://v2.uyan.cc/code/uyan.js?uid=<%= theme.youyan_uid%>"></script>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="https://avatars0.githubusercontent.com/u/21140109?v=4&u=8bfceebdaad4dca404b9876d578296b600da38d7&s=400"
+               alt="Xu Xiang" />
+          <p class="site-author-name" itemprop="name">Xu Xiang</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives/">
+                <span class="site-state-item-count">2</span>
+                <span class="site-state-item-name">Artikel</span>
+              </a>
+            </div>
+          
+
+          
+
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#起因"><span class="nav-number">1.</span> <span class="nav-text">起因</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#nginx-conf-是声明性"><span class="nav-number">2.</span> <span class="nav-text">nginx.conf 是声明性</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#nginx-主要执行阶段"><span class="nav-number">3.</span> <span class="nav-text">nginx 主要执行阶段</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#rewrite-模块"><span class="nav-number">4.</span> <span class="nav-text">rewrite 模块</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#nginx-中-fastcgi-的使用"><span class="nav-number">5.</span> <span class="nav-text">nginx 中 fastcgi 的使用</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#location-的执行顺序"><span class="nav-number">6.</span> <span class="nav-text">location 的执行顺序</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Xu Xiang</span>
+</div>
+
+
+<div class="powered-by">
+  Erstellt mit  <a class="theme-link" href="https://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Gemini
+  </a>
+</div>
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.2"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.2"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.2"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.2"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.2"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.2"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+    
+
+    
+      <!-- UY BEGIN -->
+      <script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2141498"></script>
+      <!-- UY END -->
+    
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
